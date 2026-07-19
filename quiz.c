@@ -1,5 +1,5 @@
 #include <stdio.h>
-
+// 깃허브 웹사이트에서 수정한 최신 코드
 int main() {
     int answer = 0;
     
