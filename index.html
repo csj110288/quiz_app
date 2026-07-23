@@ -143,6 +143,9 @@
 </head>
 <body>
 
+<!-- BGM 오디오 파일 추가 -->
+<audio id="bgm" src="bgm.mp3" loop></audio>
+
 <div class="app-container">
     <!-- 메인 화면 -->
     <div id="home-screen" class="screen active">
@@ -253,37 +256,62 @@
     }
 
     function startGame(category) {
-        currentBank = quizData.filter(q => q.cat === category);
-        // 문제 순서 무작위 섞기
-        currentBank.sort(() => Math.random() - 0.5);
-        
-        currentIdx = 0;
-        score = 0;
-        lives = 3;
-        
-        showScreen('quiz-screen');
-        renderQuestion();
+// 🎵 모바일 대응 BGM 재생
+    const bgm = document.getElementById('bgm');
+    if (bgm) {
+        bgm.currentTime = 0; // 처음부터 재생
+        bgm.play().catch(e => {
+            console.log("모바일 자동재생 제한, 터치 이벤트 대기 중:", e);
+        });
+    }
+
+    currentBank = quizData.filter(q => q.cat === category);
+    currentBank.sort(() => Math.random() - 0.5);
+    
+    currentIdx = 0;
+    score = 0;
+    lives = 3;
+    
+    showScreen('quiz-screen');
+    renderQuestion();
     }
 
     function renderQuestion() {
-        const q = currentBank[currentIdx];
-        document.getElementById('score').innerText = score;
-        document.getElementById('lives').innerText = '❤️'.repeat(lives);
-        document.getElementById('round-info').innerText = `제 ${currentIdx + 1} 라운드 / 총 ${currentBank.length}문제`;
-        document.getElementById('question-text').innerText = q.q;
-        document.getElementById('explanation-box').style.display = 'none';
-        document.getElementById('next-btn').style.display = 'none';
+    const q = currentBank[currentIdx];
+    document.getElementById('score').innerText = score;
+    document.getElementById('lives').innerText = '❤️'.repeat(lives);
+    document.getElementById('round-info').innerText = `제 ${currentIdx + 1} 라운드 / 총 ${currentBank.length}문제`;
+    document.getElementById('question-text').innerText = q.q;
+    document.getElementById('explanation-box').style.display = 'none';
+    document.getElementById('next-btn').style.display = 'none';
 
-        const container = document.getElementById('options-container');
-        container.innerHTML = '';
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
 
-        q.opts.forEach((optText, idx) => {
-            const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.innerText = optText;
-            btn.onclick = () => selectAnswer(idx + 1, q.ans, btn);
-            container.appendChild(btn);
-        });
+    // 1. 기존 데이터에서 "1) ", "2) " 같은 앞쪽 번호 정규식으로 떼어내기
+    const shuffledOptions = q.opts.map((optText, index) => ({
+        cleanText: optText.replace(/^[0-9]\)\s*/, ''), // 앞의 번호(1) ) 제거
+        originalIndex: index + 1                       // 데이터 상의 원래 정답 번호
+    }));
+    
+    // 2. 피셔-예이츠 셔플로 선택지 무작위 섞기
+    for (let i = shuffledOptions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+    }
+
+    // 3. 섞인 순서대로 1), 2), 3), 4) 번호를 깔끔하게 재할당하여 버튼 생성
+    shuffledOptions.forEach((optObj, displayIdx) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        
+        // 화면에는 항상 1), 2), 3), 4) 순서로 표시!
+        btn.innerText = `${displayIdx + 1}) ${optObj.cleanText}`;
+        
+        // 클릭 시 원래 정답 번호(originalIndex)와 비교
+        btn.onclick = () => selectAnswer(optObj.originalIndex, q.ans, btn);
+        container.appendChild(btn);
+    });
     }
 
     function selectAnswer(selected, correct, btnElement) {
@@ -342,6 +370,25 @@
         }
     }
 
+// 📱 모바일 브라우저 BGM 오디오 잠금 해제 (최초 1회 터치 시 작동)
+function unlockAudio() {
+    const bgm = document.getElementById('bgm');
+    if (bgm) {
+        bgm.play().then(() => {
+            // 메인 화면일 때는 일단 일시정지 (게임 시작 시 재생되도록)
+            if (document.getElementById('home-screen').classList.contains('active')) {
+                bgm.pause();
+                bgm.currentTime = 0;
+            }
+        }).catch(() => {});
+    }
+    // 한 번 터치하면 이벤트 제거
+    document.removeEventListener('touchstart', unlockAudio);
+    document.removeEventListener('click', unlockAudio);
+}
+
+document.addEventListener('touchstart', unlockAudio, { once: true });
+document.addEventListener('click', unlockAudio, { once: true });
     // 초기화
     updateHighScoreUI();
 </script>
